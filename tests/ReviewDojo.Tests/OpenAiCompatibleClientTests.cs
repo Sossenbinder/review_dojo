@@ -42,4 +42,34 @@ public class OpenAiCompatibleClientTests
         Assert.Equal("Bearer", stub.Last!.Headers.Authorization?.Scheme);
         Assert.Equal("secret-key", stub.Last!.Headers.Authorization?.Parameter);
     }
+
+    private sealed class FixedHandler : HttpMessageHandler
+    {
+        private readonly HttpStatusCode _code; private readonly string _body;
+        public FixedHandler(HttpStatusCode code, string body) { _code = code; _body = body; }
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
+            => Task.FromResult(new HttpResponseMessage(_code) { Content = new StringContent(_body) });
+    }
+
+    [Fact]
+    public async Task Non200_ThrowsClearError_HintingV1()
+    {
+        // Simulates hitting the wrong path (no /v1) — server returns 404 with a non-JSON body.
+        var client = new OpenAiCompatibleClient(
+            new HttpClient(new FixedHandler(HttpStatusCode.NotFound, "Not Found")), "http://localhost:1234", null);
+        var ex = await Assert.ThrowsAsync<GeneratorException>(() =>
+            client.CompleteAsync(new LlmRequest("m", "s", new[] { new LlmMessage("user", "u") })));
+        Assert.Contains("/v1", ex.Message);
+        Assert.Contains("404", ex.Message);
+    }
+
+    [Fact]
+    public async Task MissingChoices_ThrowsClearError()
+    {
+        var client = new OpenAiCompatibleClient(
+            new HttpClient(new FixedHandler(HttpStatusCode.OK, "{\"object\":\"list\"}")), "http://localhost:1234/v1", null);
+        var ex = await Assert.ThrowsAsync<GeneratorException>(() =>
+            client.CompleteAsync(new LlmRequest("m", "s", new[] { new LlmMessage("user", "u") })));
+        Assert.Contains("no choices", ex.Message);
+    }
 }
