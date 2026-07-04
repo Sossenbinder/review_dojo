@@ -63,6 +63,29 @@ mock drives the *real* generation pipeline (locus selection, diff building, anch
 injects **simple operator/boundary flips** (e.g. `==`→`=`, `<=`→`<`) so you can exercise the review UI end to
 end. For realistic, varied diffs, run without the mock and set `ANTHROPIC_API_KEY` (real mode, above).
 
+### Local model (LM Studio / Ollama / OpenAI-compatible)
+
+You can point the generator at any local OpenAI-compatible chat-completions server instead of Anthropic:
+
+1. Start LM Studio, load an instruct model, and start its local server (default `http://localhost:1234/v1`).
+2. Run:
+
+   ```bash
+   dotnet run --project src/ReviewDojo.Api --launch-profile local
+   ```
+
+   The `local` profile presets `OpenAI__BaseUrl=http://localhost:1234/v1` and `OpenAI__Model=local-model`.
+   Alternatively, set `OpenAI__BaseUrl` / `OpenAI__Model` / optional `OpenAI__ApiKey` env vars on the `https`
+   profile. Config keys: `OpenAI:BaseUrl`, `OpenAI:Model`, `OpenAI:ApiKey`.
+
+**Selection order:** `Anthropic:UseMock=true` → mock; else if `OpenAI:BaseUrl` is set → OpenAI-compatible
+endpoint; else → Anthropic (`ANTHROPIC_API_KEY`).
+
+> **Caveat:** the generator needs the model to return strict JSON with full-file rewrites and
+> verbatim-locatable anchors. Capable instruct models with a large context work; small models will frequently
+> fail to produce valid manifests (the generator drops unresolvable bugs / treats a run as clean rather than
+> emitting phantom lines). Ollama also exposes an OpenAI-compatible endpoint at `http://localhost:11434/v1`.
+
 **The review loop** (open the single app URL above):
 
 1. On the Home page (`/`), enter a **real repo path** on disk, choose a **difficulty** (Easy / Medium / Hard),
