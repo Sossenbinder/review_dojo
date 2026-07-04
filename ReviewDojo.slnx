@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ReviewDojo.Api/ReviewDojo.Api.csproj" />
+    <Project Path="src/ReviewDojo.Cli/ReviewDojo.Cli.csproj" />
+    <Project Path="src/ReviewDojo.Client/ReviewDojo.Client.csproj" />
+    <Project Path="src/ReviewDojo.Core/ReviewDojo.Core.csproj" />
+    <Project Path="src/ReviewDojo.Data/ReviewDojo.Data.csproj" />
+    <Project Path="src/ReviewDojo.Generator/ReviewDojo.Generator.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ReviewDojo.Tests/ReviewDojo.Tests.csproj" />
+  </Folder>
+</Solution>
