@@ -13,13 +13,12 @@ public static class LocusSelector
             .Where(p => Exts.Contains(Path.GetExtension(p)))
             .Where(p =>
             {
-                // Only exclude bin/obj/.git that appear WITHIN the repo, not in the
-                // repoPath prefix itself (which may legitimately live under bin/ in tests).
+                // Exclude build artifacts by PATH SEGMENT (not delimited substring) so that
+                // files directly under a root-level bin/, obj/, or .git/ are excluded too.
+                // GetRelativePath strips the repoPath prefix, so the prefix's own dirs are safe.
                 var rel = Path.GetRelativePath(repoPath, p);
-                var sep = Path.DirectorySeparatorChar;
-                return !rel.Contains($"{sep}bin{sep}")
-                    && !rel.Contains($"{sep}obj{sep}")
-                    && !rel.Contains($"{sep}.git{sep}");
+                var segments = rel.Split('/', '\\');
+                return !segments.Any(s => s is "bin" or "obj" or ".git");
             })
             .OrderBy(p => p, StringComparer.Ordinal).ToList();
         if (all.Count == 0) throw new InvalidOperationException($"No source files under {repoPath}");

@@ -14,10 +14,8 @@ public class AnchorResolver
         int line = diff.NewLineOf(raw.FilePath, raw.Anchor);
         if (line < 0) return null;
 
-        // If the anchor spans multiple lines, widen the range to cover them.
-        var anchorLines = raw.Anchor.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
-        int end = line + Math.Max(0, anchorLines - 1);
-        return new ManifestBug(raw.FilePath, line, end, raw.Category, raw.Severity, raw.Description);
+        // Anchors are single-line verbatim substrings, so LineEnd == LineStart.
+        return new ManifestBug(raw.FilePath, line, line, raw.Category, raw.Severity, raw.Description);
     }
 
     public List<ManifestBug> ResolveAll(BuiltDiff diff, IEnumerable<RawManifestEntry> raws)

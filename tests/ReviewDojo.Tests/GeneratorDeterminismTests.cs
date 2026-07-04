@@ -18,6 +18,21 @@ public class GeneratorDeterminismTests
         }
     }
 
+    class WrongPathClient : IAnthropicClient
+    {
+        public Task<string> CompleteAsync(LlmRequest r, CancellationToken ct = default)
+            => Task.FromResult("{\"files\":[{\"path\":\"Nonexistent.cs\",\"after\":\"class X {}\"}]}");
+    }
+
+    [Fact]
+    public async Task UnknownReturnedPath_Throws()
+    {
+        var gen = new DiffGenerator(new WrongPathClient(), "claude-sonnet-4-6");
+        var repoPath = Path.Combine(AppContext.BaseDirectory, "fixtures", "mini-repo");
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            gen.GenerateAsync(repoPath, DifficultyTier.Medium, seed: 1, forceMistakeCount: 0));
+    }
+
     [Fact]
     public async Task TenRuns_EveryManifestLineExistsInDiff_AndCleanRunsAreEmpty()
     {
