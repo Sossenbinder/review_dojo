@@ -7,7 +7,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddDbContext<ReviewDojoContext>(o =>
     o.UseSqlite(builder.Configuration.GetConnectionString("Db") ?? "Data Source=reviewdojo.db"));
-builder.Services.AddHttpClient<IAnthropicClient, AnthropicClient>();
+if (builder.Configuration.GetValue<bool>("Anthropic:UseMock"))
+    builder.Services.AddSingleton<IAnthropicClient, MockAnthropicClient>();
+else
+    builder.Services.AddHttpClient<IAnthropicClient, AnthropicClient>();
 builder.Services.AddScoped(sp => new DiffGenerator(
     sp.GetRequiredService<IAnthropicClient>(),
     builder.Configuration["Anthropic:Model"] ?? "claude-sonnet-4-6"));

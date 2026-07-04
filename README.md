@@ -72,6 +72,23 @@ ApiBase=http://localhost:5228/ dotnet run --project src/ReviewDojo.Client --laun
 (Env-var forms: `ClientOrigin`, `ApiBase`. For the client — a WASM app — you can also set `ApiBase` in
 `wwwroot/appsettings.json`.)
 
+### Demo mode (no API key)
+
+To try the whole app with **no Anthropic API key and no network**, run the API with the `demo` launch profile:
+
+```bash
+# Terminal 1 — API with the offline mock generator (no ANTHROPIC_API_KEY needed)
+dotnet run --project src/ReviewDojo.Api --launch-profile demo
+# Terminal 2 — client, exactly as normal
+dotnet run --project src/ReviewDojo.Client --launch-profile https
+```
+
+The `demo` profile sets `Anthropic__UseMock=true`, so the API wires up an in-process `MockAnthropicClient`
+instead of the real HTTP client — the real `AnthropicClient` is never constructed, so no key is required. The
+mock drives the *real* generation pipeline (locus selection, diff building, anchor resolution, scoring); it just
+injects **simple operator/boundary flips** (e.g. `==`→`=`, `<=`→`<`) so you can exercise the review UI end to
+end. For realistic, varied diffs, run without the mock and set `ANTHROPIC_API_KEY` (real mode, above).
+
 **The review loop** (in the client, `https://localhost:7002`):
 
 1. On the Home page (`/`), enter a **real repo path** on disk, choose a **difficulty** (Easy / Medium / Hard),
