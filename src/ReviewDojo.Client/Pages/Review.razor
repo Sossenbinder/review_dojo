@@ -183,8 +183,10 @@ else
         timer?.Stop();
         try
         {
-            var reveal = await Api.Submit(diff.Id, new(verdict, findings.ToList()));
+            var mine = findings.ToList();
+            var reveal = await Api.Submit(diff.Id, new(verdict, mine));
             RevealCache.Last = reveal;
+            RevealCache.Findings = mine;
             Nav.NavigateTo($"/reveal/{SessionId}/{Ordinal}");
         }
         catch (Exception ex) { error = ex.Message; submitting = false; }

@@ -33,27 +33,85 @@ else
       <div class="stat"><div class="k">Time</div><div class="v">@(r.Score.TimeMs / 1000)s</div></div>
     </div>
 
-    <div class="section-title">
-      <h3>Seeded bugs</h3>
-      <span class="count-badge">@r.Manifest.Count ground-truth</span>
-    </div>
+    <div class="section-title"><h3>How your review did</h3></div>
 
-    @if (r.Manifest.Count == 0)
-    {
-      <div class="clean-banner">◇ This was a <strong>&nbsp;clean diff&nbsp;</strong> — there were no seeded bugs. Approving was the correct call.</div>
+    @{
+      var hits   = r.Matches.Where(m => m.BugFile != null && m.FindingFile != null).ToList();
+      var fps    = r.Matches.Where(m => m.BugFile == null && m.FindingFile != null).ToList();
+      var misses = r.Matches.Where(m => m.BugFile != null && m.FindingFile == null).ToList();
     }
-    else
+
+    @if (hits.Count == 0 && fps.Count == 0 && misses.Count == 0)
     {
-      <ul class="manifest">
-        @foreach (var b in r.Manifest)
+      <div class="clean-banner">◇ Clean diff — no seeded bugs, and you flagged nothing. Approving was the correct call.</div>
+    }
+
+    @if (hits.Count > 0)
+    {
+      <div class="sub-head"><h4>✓ You caught</h4><span class="n">@hits.Count</span></div>
+      <ul class="rev-list">
+        @foreach (var m in hits)
         {
-          <li>
+          var bug = Bug(m); var find = Find(m);
+          <li class="caught">
             <div class="row1">
-              <span class="loc">@b.FilePath:@b.LineStart</span>
-              <span class="cat-tag cat-@b.Category">@b.Category</span>
-              <span class="sev sev-@b.Severity">@b.Severity</span>
+              <span class="outcome ok">HIT</span>
+              <span class="loc">@m.FindingFile:@m.FindingLine</span>
+              @if (bug is not null)
+              {
+                <span class="cat-tag cat-@bug.Category">@bug.Category</span>
+                <span class="sev sev-@bug.Severity">@bug.Severity</span>
+              }
+              @if (m.Credit < 1.0)
+              {
+                <span class="note">½ credit — right spot, wrong category@(find is not null && bug is not null ? $" (you said {find.Category}, it was {bug.Category})" : "")</span>
+              }
             </div>
-            <div class="desc">@b.Description</div>
+            @if (bug is not null) { <div class="desc">@bug.Description</div> }
+            @if (find is not null && !string.IsNullOrWhiteSpace(find.Comment)) { <div class="note-you">Your note: “@find.Comment”</div> }
+          </li>
+        }
+      </ul>
+    }
+
+    @if (fps.Count > 0)
+    {
+      <div class="sub-head"><h4>✗ False positives</h4><span class="n">@fps.Count</span></div>
+      <ul class="rev-list">
+        @foreach (var m in fps)
+        {
+          var find = Find(m);
+          <li class="fp-item">
+            <div class="row1">
+              <span class="outcome warn">NOT A BUG</span>
+              <span class="loc">@m.FindingFile:@m.FindingLine</span>
+              @if (find is not null) { <span class="cat-tag cat-@find.Category">@find.Category</span> }
+            </div>
+            <div class="desc">No seeded bug here — nothing was actually wrong at this line.</div>
+            @if (find is not null && !string.IsNullOrWhiteSpace(find.Comment)) { <div class="note-you">Your note: “@find.Comment”</div> }
+          </li>
+        }
+      </ul>
+    }
+
+    @if (misses.Count > 0)
+    {
+      <div class="sub-head"><h4>⚠ You missed</h4><span class="n">@misses.Count</span></div>
+      <ul class="rev-list">
+        @foreach (var m in misses)
+        {
+          var bug = Bug(m);
+          <li class="miss-item">
+            <div class="row1">
+              <span class="outcome bad">MISSED</span>
+              <span class="loc">@(bug?.FilePath):@(bug?.LineStart)</span>
+              @if (bug is not null)
+              {
+                <span class="cat-tag cat-@bug.Category">@bug.Category</span>
+                <span class="sev sev-@bug.Severity">@bug.Severity</span>
+              }
+            </div>
+            @if (bug is not null) { <div class="desc">@bug.Description</div> }
           </li>
         }
       </ul>
@@ -76,6 +134,11 @@ else
     [Parameter] public int SessionId { get; set; }
     [Parameter] public int Ordinal { get; set; }
     RevealDto? r;
+
     protected override void OnInitialized() => r = RevealCache.Last;
+
+    ManifestBugDto? Bug(MatchDto m) => r!.Manifest.FirstOrDefault(b => b.FilePath == m.BugFile && b.LineStart == m.BugLine);
+    FindingDto? Find(MatchDto m) => RevealCache.Findings?.FirstOrDefault(f => f.FilePath == m.FindingFile && f.Line == m.FindingLine);
+
     void Next() => Nav.NavigateTo($"/review/{SessionId}/{Ordinal + 1}");
 }
