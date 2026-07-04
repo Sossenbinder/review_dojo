@@ -2,18 +2,37 @@
 @inject ReviewDojo.Client.Services.ApiClient Api
 @inject NavigationManager Nav
 
-<h1>Review Dojo</h1>
-<p>Deliberate practice for reviewing AI-generated code.</p>
+<div class="hero">
+    <div class="eyebrow">Deliberate practice</div>
+    <h1>Sharpen your code review.</h1>
+    <p class="lede">
+        An agent generates realistic diffs against a real codebase with a hidden number of
+        seeded bugs — sometimes zero. Spot them, submit a verdict, and get scored against ground truth.
+    </p>
 
-<div class="start-form">
-  <label>Target repo path <input @bind="repo" placeholder="/path/to/a/git/repo" /></label>
-  <label>Difficulty
-    <select @bind="tier"><option>Easy</option><option>Medium</option><option>Hard</option></select>
-  </label>
-  <button disabled="@(string.IsNullOrWhiteSpace(repo) || busy)" @onclick="Start">
-    @(busy ? "Starting…" : "Start session (5 diffs)")
-  </button>
-  @if (error is not null) { <p class="error">@error</p> }
+    <div class="panel start-card">
+        <div class="field">
+            <label>Target repository path</label>
+            <input @bind="repo" @bind:event="oninput" placeholder="/path/to/a/local/source/repo" />
+            <p class="hint">Any local folder with source files — read-only, its code is never executed.</p>
+        </div>
+
+        <div class="field-row">
+            <div class="field" style="flex:0 0 200px">
+                <label>Difficulty</label>
+                <select @bind="tier">
+                    <option value="Easy">Easy — obvious, mechanical</option>
+                    <option value="Medium">Medium — edge cases</option>
+                    <option value="Hard">Hard — contextual, subtle</option>
+                </select>
+            </div>
+            <button class="btn btn-primary btn-lg" disabled="@(string.IsNullOrWhiteSpace(repo) || busy)" @onclick="Start">
+                @(busy ? "Generating…" : "Start session · 5 diffs")
+            </button>
+        </div>
+
+        @if (error is not null) { <p class="error">@error</p> }
+    </div>
 </div>
 
 @code {

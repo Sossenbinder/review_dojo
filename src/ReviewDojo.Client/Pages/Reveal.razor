@@ -4,44 +4,72 @@
 
 @if (r is null)
 {
-  <p>No reveal data. <a href="/">Start a new session.</a></p>
+  <div class="panel narrow">No reveal data. <a href="/">Start a new session.</a></div>
 }
 else
 {
-  <h2>Result — diff #@(Ordinal + 1) of 5</h2>
-  <ul class="metrics">
-    <li>Recall: @r.Score.Recall.ToString("P0")</li>
-    <li>Precision: @r.Score.Precision.ToString("P0")</li>
-    <li>Severity-weighted recall: @r.Score.SeverityWeightedRecall.ToString("P0")</li>
-    <li>False-positive rate: @r.Score.FalsePositiveRate.ToString("P0")</li>
-    <li>Verdict correct: @(r.Score.VerdictCorrect ? "yes" : "no")</li>
-    <li>Hits @r.Score.Hits · Misses @r.Score.Misses · False positives @r.Score.FalsePositives</li>
-    <li>Time: @(r.Score.TimeMs / 1000)s</li>
-  </ul>
+  <div class="narrow">
+    <div class="page-head">
+      <div class="eyebrow">Result · diff @(Ordinal + 1) of 5</div>
+      <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap">
+        <h1 style="margin:.2rem 0">Revealed</h1>
+        <span class="verdict-badge @(r.Score.VerdictCorrect ? "ok" : "no")">
+          @(r.Score.VerdictCorrect ? "✓ Verdict correct" : "✗ Verdict wrong")
+        </span>
+      </div>
+    </div>
 
-  <h3>Seeded bugs (@r.Manifest.Count)</h3>
-  @if (r.Manifest.Count == 0)
-  {
-    <p>This was a <strong>clean diff</strong> — no seeded bugs.</p>
-  }
-  else
-  {
-    <ul class="manifest">
-      @foreach (var b in r.Manifest)
+    <div class="tally">
+      <span class="hit">Hits <b>@r.Score.Hits</b></span>
+      <span class="miss">Missed <b>@r.Score.Misses</b></span>
+      <span class="fp">False positives <b>@r.Score.FalsePositives</b></span>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="stat brand"><div class="k">Recall</div><div class="v">@r.Score.Recall.ToString("P0")</div></div>
+      <div class="stat brand"><div class="k">Precision</div><div class="v">@r.Score.Precision.ToString("P0")</div></div>
+      <div class="stat"><div class="k">Sev-weighted recall</div><div class="v">@r.Score.SeverityWeightedRecall.ToString("P0")</div></div>
+      <div class="stat @(r.Score.FalsePositiveRate > 0 ? "bad" : "good")"><div class="k">False-positive rate</div><div class="v">@r.Score.FalsePositiveRate.ToString("P0")</div></div>
+      <div class="stat"><div class="k">Time</div><div class="v">@(r.Score.TimeMs / 1000)s</div></div>
+    </div>
+
+    <div class="section-title">
+      <h3>Seeded bugs</h3>
+      <span class="count-badge">@r.Manifest.Count ground-truth</span>
+    </div>
+
+    @if (r.Manifest.Count == 0)
+    {
+      <div class="clean-banner">◇ This was a <strong>&nbsp;clean diff&nbsp;</strong> — there were no seeded bugs. Approving was the correct call.</div>
+    }
+    else
+    {
+      <ul class="manifest">
+        @foreach (var b in r.Manifest)
+        {
+          <li>
+            <div class="row1">
+              <span class="loc">@b.FilePath:@b.LineStart</span>
+              <span class="cat-tag cat-@b.Category">@b.Category</span>
+              <span class="sev sev-@b.Severity">@b.Severity</span>
+            </div>
+            <div class="desc">@b.Description</div>
+          </li>
+        }
+      </ul>
+    }
+
+    <div class="reveal-actions">
+      @if (Ordinal + 1 < 5)
       {
-        <li><b>@b.FilePath:@b.LineStart</b> [@b.Category / @b.Severity] — @b.Description</li>
+        <button class="btn btn-primary btn-lg" @onclick="Next">Next diff →</button>
       }
-    </ul>
-  }
-
-  @if (Ordinal + 1 < 5)
-  {
-    <button @onclick="Next">Next diff</button>
-  }
-  else
-  {
-    <button @onclick='() => Nav.NavigateTo("/stats")'>See cumulative stats</button>
-  }
+      else
+      {
+        <button class="btn btn-primary btn-lg" @onclick='() => Nav.NavigateTo("/stats")'>See cumulative stats →</button>
+      }
+    </div>
+  </div>
 }
 
 @code {

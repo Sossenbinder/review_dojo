@@ -5,37 +5,93 @@
 @inject NavigationManager Nav
 @using ReviewDojo.Client.Services
 
-@if (diff is null)
+@if (diff is null && error is null)
 {
-  <p>@(error ?? "Generating diff…")</p>
+  <div class="panel" style="text-align:center; color:var(--muted)">Generating diff #@(Ordinal + 1)…</div>
+}
+else if (error is not null)
+{
+  <div class="panel"><p class="error">@error</p><a href="/">← Back to start</a></div>
 }
 else
 {
-  <div class="toolbar">
-    <span>Diff #@(Ordinal + 1) of 5 — @diff.SizeLines changed lines — @elapsed.ToString(@"mm\:ss")</span>
-    <button @onclick="ToggleMode">@(mode == "side" ? "Unified view" : "Side-by-side view")</button>
+  <div class="review-head">
+    <div class="review-title">
+      <h2>Reviewing</h2>
+      <span class="pill">@diff!.SizeLines changed lines</span>
+      <span class="pill timer">@elapsed.ToString(@"mm\:ss")</span>
+    </div>
+    <div class="review-title">
+      <div class="progress-dots" title="Diff @(Ordinal + 1) of 5">
+        @for (int i = 0; i < 5; i++)
+        {
+          <i class="@(i < Ordinal ? "done" : i == Ordinal ? "current" : "")"></i>
+        }
+      </div>
+      <button class="btn" @onclick="ToggleMode">@(mode == "side" ? "Unified view" : "Side-by-side")</button>
+    </div>
   </div>
-  <div id="diffview"></div>
 
-  <h3>Findings (@findings.Count)</h3>
-  <div class="add-finding">
-    <input placeholder="file" @bind="fFile" />
-    <input type="number" placeholder="line" @bind="fLine" />
-    <select @bind="fCat">
-      <option>Mechanical</option><option>EdgeCase</option><option>Contextual</option>
-      <option>Abstraction</option><option>AgentTypical</option>
-    </select>
-    <input placeholder="comment (optional)" @bind="fComment" />
-    <button @onclick="AddFinding" disabled="@string.IsNullOrWhiteSpace(fFile)">Add</button>
+  <p class="review-tip">💡 Click any changed line to flag a finding. Approve if you believe the diff is clean.</p>
+
+  <div class="diff-panel"><div id="diffview"></div></div>
+
+  @if (pending is not null)
+  {
+    <div class="composer">
+      <div class="target">
+        <span class="loc">@pending.File:@pending.Line</span>
+        <span class="muted">— what kind of bug is this?</span>
+      </div>
+      @if (!string.IsNullOrWhiteSpace(pending.Snippet))
+      {
+        <div class="snippet">@pending.Snippet</div>
+      }
+      <div class="cat-pills">
+        @foreach (var c in Categories)
+        {
+          <button class="cat-pill cat-@c @(pendingCat == c ? "sel" : "")" @onclick="() => pendingCat = c">@c</button>
+        }
+      </div>
+      <input class="comment" placeholder="Optional note — why is this wrong?" @bind="pendingComment" />
+      <div class="composer-actions">
+        <button class="btn btn-primary" disabled="@(pendingCat is null)" @onclick="ConfirmFinding">Add finding</button>
+        <button class="btn btn-ghost" @onclick="CancelPending">Cancel</button>
+      </div>
+    </div>
+  }
+
+  <div class="section-title">
+    <h3>Your findings</h3>
+    <span class="count-badge">@findings.Count marked</span>
   </div>
-  <ul>
-    @foreach (var f in findings)
-    { <li>@f.FilePath:@f.Line [@f.Category] @f.Comment</li> }
-  </ul>
 
-  <div class="verdict">
-    <button @onclick='() => Submit("Approve")' disabled="@submitting">Approve</button>
-    <button @onclick='() => Submit("RequestChanges")' disabled="@submitting">Request changes</button>
+  @if (findings.Count == 0)
+  {
+    <p class="empty" style="margin-top:4px">No findings yet — click a line above to flag one.</p>
+  }
+  else
+  {
+    <ul class="finding-list">
+      @for (int i = 0; i < findings.Count; i++)
+      {
+        var idx = i; var f = findings[i];
+        <li>
+          <span class="loc">@f.FilePath:@f.Line</span>
+          <span class="cat-tag cat-@f.Category">@f.Category</span>
+          @if (!string.IsNullOrWhiteSpace(f.Comment)) { <span class="cmt">@f.Comment</span> }
+          <span class="spacer"></span>
+          <button class="finding-remove" title="Remove" @onclick="() => RemoveFinding(idx)">✕</button>
+        </li>
+      }
+    </ul>
+  }
+
+  <div class="verdict-bar">
+    <span class="verdict-hint">Submit your verdict for this diff.</span>
+    <span class="spacer"></span>
+    <button class="btn btn-approve" @onclick='() => Submit("Approve")' disabled="@submitting">✓ Approve</button>
+    <button class="btn btn-danger" @onclick='() => Submit("RequestChanges")' disabled="@submitting">✗ Request changes</button>
   </div>
 }
 
@@ -43,18 +99,25 @@ else
     [Parameter] public int SessionId { get; set; }
     [Parameter] public int Ordinal { get; set; }
 
+    static readonly string[] Categories = { "Mechanical", "EdgeCase", "Contextual", "Abstraction", "AgentTypical" };
+
     DiffDto? diff; string? error; string mode = "line";
-    string fFile = ""; int fLine; string fCat = "Mechanical"; string? fComment;
     readonly List<FindingDto> findings = new();
     System.Timers.Timer? timer; TimeSpan elapsed; DateTime startedAt;
     bool _needsRender; bool submitting;
+    DotNetObjectReference<Review>? _ref;
+
+    // pending finding created by clicking a diff line
+    record Pending(string File, int Line, string Snippet);
+    Pending? pending; string? pendingCat; string? pendingComment;
+
+    protected override void OnInitialized() => _ref = DotNetObjectReference.Create(this);
 
     protected override async Task OnParametersSetAsync()
     {
-        // reset for the new ordinal
         timer?.Stop(); timer?.Dispose(); timer = null;
         findings.Clear(); diff = null; error = null; elapsed = TimeSpan.Zero;
-        mode = "line"; fFile = ""; fLine = 0; fComment = null; fCat = "Mechanical";
+        mode = "line"; pending = null; pendingCat = null; pendingComment = null; submitting = false;
         StateHasChanged();
         try
         {
@@ -74,21 +137,43 @@ else
         if (diff is not null && _needsRender)
         {
             _needsRender = false;
-            await JS.InvokeVoidAsync("dojoDiff.render", "diffview", diff.UnifiedDiffText, mode);
+            await JS.InvokeVoidAsync("dojoDiff.render", "diffview", diff.UnifiedDiffText, mode, _ref);
+            await Mark();
         }
     }
+
+    [JSInvokable]
+    public Task OnLineClicked(string file, int line, string snippet)
+    {
+        pending = new Pending(file, line, snippet);
+        pendingCat = null; pendingComment = null;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    async Task ConfirmFinding()
+    {
+        if (pending is null || pendingCat is null) return;
+        findings.Add(new(pending.File, pending.Line, pendingCat, pendingComment));
+        pending = null; pendingCat = null; pendingComment = null;
+        await Mark();
+    }
+
+    void CancelPending() { pending = null; pendingCat = null; pendingComment = null; }
+
+    async Task RemoveFinding(int i)
+    {
+        if (i >= 0 && i < findings.Count) findings.RemoveAt(i);
+        await Mark();
+    }
+
+    Task Mark() => JS.InvokeVoidAsync("dojoDiff.markFindings", "diffview",
+        findings.Select(f => new { file = f.FilePath, line = f.Line, category = f.Category })).AsTask();
 
     async Task ToggleMode()
     {
         mode = mode == "side" ? "line" : "side";
-        await JS.InvokeVoidAsync("dojoDiff.render", "diffview", diff!.UnifiedDiffText, mode);
-    }
-
-    void AddFinding()
-    {
-        if (string.IsNullOrWhiteSpace(fFile)) return;
-        findings.Add(new(fFile, fLine, fCat, fComment));
-        fFile = ""; fLine = 0; fComment = null;
+        await JS.InvokeVoidAsync("dojoDiff.render", "diffview", diff!.UnifiedDiffText, mode, _ref);
+        await Mark();
     }
 
     async Task Submit(string verdict)
@@ -105,5 +190,5 @@ else
         catch (Exception ex) { error = ex.Message; submitting = false; }
     }
 
-    public void Dispose() { timer?.Dispose(); }
+    public void Dispose() { timer?.Dispose(); _ref?.Dispose(); }
 }
