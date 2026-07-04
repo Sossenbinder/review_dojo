@@ -82,13 +82,20 @@ You can point the generator at any local OpenAI-compatible chat-completions serv
 endpoint; else → Anthropic (`ANTHROPIC_API_KEY`).
 
 > `OpenAI:BaseUrl` must include the `/v1` path (e.g. `http://localhost:1234/v1`) — without it the client hits
-> the wrong path and you'll get a clear error. **JSON mode** (`response_format: json_object`) is sent by default
-> so the server is constrained to valid JSON; disable it with `OpenAI:JsonMode=false` if your server rejects it.
+> the wrong path and you'll get a clear error. **JSON mode** (`response_format: json_schema`, which LM Studio
+> supports) is sent by default to constrain the output to the generator's shape; the client automatically
+> retries as plain text if a server rejects it, and you can force it off with `OpenAI:JsonMode=false`.
 
-> **Caveat:** the generator needs the model to return strict JSON with full-file rewrites and
-> verbatim-locatable anchors. Capable instruct models with a large context work; small models will frequently
-> fail to produce valid manifests (the generator drops unresolvable bugs / treats a run as clean rather than
-> emitting phantom lines). Ollama also exposes an OpenAI-compatible endpoint at `http://localhost:11434/v1`.
+> **Caveats:**
+> - The generator needs the model to return strict JSON with **full-file rewrites** (twice per diff) and
+>   verbatim-locatable anchors. Capable instruct models with a large context work; small models frequently
+>   fail to produce valid manifests (the generator drops unresolvable bugs / treats a run as clean rather than
+>   emitting phantom lines).
+> - **Reasoning models** (Qwen3, DeepSeek-R1, …) are a poor fit: they spend the output-token budget "thinking"
+>   and — especially at small context sizes — hit the limit before emitting the JSON, returning empty content
+>   (you'll get a clear error). Turn off the model's thinking/reasoning mode in LM Studio, raise the output
+>   budget with `OpenAI:MaxTokens` (e.g. `24000`), enlarge the context, or use a non-reasoning instruct model.
+> - Ollama also exposes an OpenAI-compatible endpoint at `http://localhost:11434/v1`.
 
 **The review loop** (open the single app URL above):
 

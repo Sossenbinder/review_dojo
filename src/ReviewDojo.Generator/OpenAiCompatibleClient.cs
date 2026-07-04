@@ -11,11 +11,13 @@ public class OpenAiCompatibleClient : IAnthropicClient
 {
     private readonly HttpClient _http;
     private readonly bool _jsonMode;
+    private readonly int? _maxTokens;
 
-    public OpenAiCompatibleClient(HttpClient http, string baseUrl, string? apiKey = null, bool jsonMode = true)
+    public OpenAiCompatibleClient(HttpClient http, string baseUrl, string? apiKey = null, bool jsonMode = true, int? maxTokens = null)
     {
         _http = http;
         _jsonMode = jsonMode;
+        _maxTokens = maxTokens;
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new InvalidOperationException("OpenAI base URL is not set (e.g. http://localhost:1234/v1).");
         if (!baseUrl.EndsWith('/')) baseUrl += "/";
@@ -112,7 +114,22 @@ public class OpenAiCompatibleClient : IAnthropicClient
                 throw new GeneratorException(
                     $"LLM response from {endpoint} had no choices — check OpenAI:BaseUrl (should end in /v1) and the model id. Response: {Truncate(raw)}");
 
-            return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+            var choice = choices[0];
+            var message = choice.GetProperty("message");
+            var content = message.TryGetProperty("content", out var c) ? c.GetString() : null;
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                var finish = choice.TryGetProperty("finish_reason", out var fr) ? fr.GetString() : null;
+                bool reasoning = message.TryGetProperty("reasoning_content", out var rc) && !string.IsNullOrWhiteSpace(rc.GetString());
+                throw new GeneratorException(
+                    $"The model returned empty content (finish_reason={finish ?? "?"}{(reasoning ? "; reasoning present" : "")}). " +
+                    "A reasoning/thinking model likely spent its whole output budget thinking before emitting the JSON, " +
+                    "or the output was truncated. Fixes: disable the model's thinking/reasoning mode in LM Studio, " +
+                    "raise the output budget (OpenAI:MaxTokens), enlarge the model's context, or use a non-reasoning model.");
+            }
+
+            return content;
         }
     }
 
@@ -124,7 +141,7 @@ public class OpenAiCompatibleClient : IAnthropicClient
             ["model"] = request.Model,
             ["messages"] = messages,
             ["temperature"] = 0.2,
-            ["max_tokens"] = request.MaxTokens,
+            ["max_tokens"] = _maxTokens ?? request.MaxTokens,
             ["stream"] = false,
         };
         if (withSchema)

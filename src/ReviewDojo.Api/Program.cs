@@ -21,7 +21,8 @@ else if (!string.IsNullOrEmpty(openAiBase))
         new OpenAiCompatibleClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("llm"),
             openAiBase!, builder.Configuration["OpenAI:ApiKey"],
-            builder.Configuration.GetValue("OpenAI:JsonMode", true)));
+            builder.Configuration.GetValue("OpenAI:JsonMode", true),
+            builder.Configuration.GetValue<int?>("OpenAI:MaxTokens")));
 }
 else
 {

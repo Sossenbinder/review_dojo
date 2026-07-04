@@ -100,6 +100,18 @@ public class OpenAiCompatibleClientTests
     }
 
     [Fact]
+    public async Task EmptyContent_ThrowsReasoningHint()
+    {
+        var body = "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":\"lots of thinking\"}}]}";
+        var client = new OpenAiCompatibleClient(
+            new HttpClient(new FixedHandler(HttpStatusCode.OK, body)), "http://localhost:1234/v1", null);
+        var ex = await Assert.ThrowsAsync<GeneratorException>(() =>
+            client.CompleteAsync(new LlmRequest("m", "s", new[] { new LlmMessage("user", "u") })));
+        Assert.Contains("empty content", ex.Message);
+        Assert.Contains("reasoning", ex.Message);
+    }
+
+    [Fact]
     public async Task MissingChoices_ThrowsClearError()
     {
         var client = new OpenAiCompatibleClient(
