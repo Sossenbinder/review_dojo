@@ -10,10 +10,12 @@ namespace ReviewDojo.Generator;
 public class OpenAiCompatibleClient : IAnthropicClient
 {
     private readonly HttpClient _http;
+    private readonly bool _jsonMode;
 
-    public OpenAiCompatibleClient(HttpClient http, string baseUrl, string? apiKey = null)
+    public OpenAiCompatibleClient(HttpClient http, string baseUrl, string? apiKey = null, bool jsonMode = true)
     {
         _http = http;
+        _jsonMode = jsonMode;
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new InvalidOperationException("OpenAI base URL is not set (e.g. http://localhost:1234/v1).");
         if (!baseUrl.EndsWith('/')) baseUrl += "/";
@@ -28,14 +30,19 @@ public class OpenAiCompatibleClient : IAnthropicClient
         foreach (var m in request.Messages)
             messages.Add(new { role = m.Role, content = m.Content });
 
-        var body = new
+        var body = new Dictionary<string, object?>
         {
-            model = request.Model,
-            messages,
-            temperature = 0.2,
-            max_tokens = request.MaxTokens,
-            stream = false,
+            ["model"] = request.Model,
+            ["messages"] = messages,
+            ["temperature"] = 0.2,
+            ["max_tokens"] = request.MaxTokens,
+            ["stream"] = false,
         };
+        // JSON mode constrains the server's decoding to valid JSON — critical for the
+        // generator's strict-JSON contract, and it stops weaker models from emitting raw
+        // newlines inside string values. Disable via OpenAI:JsonMode=false if a server rejects it.
+        if (_jsonMode)
+            body["response_format"] = new { type = "json_object" };
 
         var endpoint = new Uri(_http.BaseAddress!, "chat/completions");
         using var resp = await _http.PostAsJsonAsync("chat/completions", body, ct);

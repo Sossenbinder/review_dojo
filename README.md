@@ -81,6 +81,10 @@ You can point the generator at any local OpenAI-compatible chat-completions serv
 **Selection order:** `Anthropic:UseMock=true` → mock; else if `OpenAI:BaseUrl` is set → OpenAI-compatible
 endpoint; else → Anthropic (`ANTHROPIC_API_KEY`).
 
+> `OpenAI:BaseUrl` must include the `/v1` path (e.g. `http://localhost:1234/v1`) — without it the client hits
+> the wrong path and you'll get a clear error. **JSON mode** (`response_format: json_object`) is sent by default
+> so the server is constrained to valid JSON; disable it with `OpenAI:JsonMode=false` if your server rejects it.
+
 > **Caveat:** the generator needs the model to return strict JSON with full-file rewrites and
 > verbatim-locatable anchors. Capable instruct models with a large context work; small models will frequently
 > fail to produce valid manifests (the generator drops unresolvable bugs / treats a run as clean rather than

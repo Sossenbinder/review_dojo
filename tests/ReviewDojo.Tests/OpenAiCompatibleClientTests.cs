@@ -31,6 +31,16 @@ public class OpenAiCompatibleClientTests
         Assert.Contains("\"model\":\"local-model\"", stub.LastBody);
         Assert.Contains("SYSTEM PROMPT", stub.LastBody);
         Assert.Contains("the user content", stub.LastBody);
+        Assert.Contains("json_object", stub.LastBody); // JSON mode on by default
+    }
+
+    [Fact]
+    public async Task JsonModeDisabled_OmitsResponseFormat()
+    {
+        var stub = new StubHandler();
+        var client = new OpenAiCompatibleClient(new HttpClient(stub), "http://localhost:1234/v1", apiKey: null, jsonMode: false);
+        await client.CompleteAsync(new LlmRequest("m", "s", new[] { new LlmMessage("user", "u") }));
+        Assert.DoesNotContain("response_format", stub.LastBody);
     }
 
     [Fact]

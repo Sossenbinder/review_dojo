@@ -20,7 +20,8 @@ else if (!string.IsNullOrEmpty(openAiBase))
     builder.Services.AddSingleton<IAnthropicClient>(sp =>
         new OpenAiCompatibleClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("llm"),
-            openAiBase!, builder.Configuration["OpenAI:ApiKey"]));
+            openAiBase!, builder.Configuration["OpenAI:ApiKey"],
+            builder.Configuration.GetValue("OpenAI:JsonMode", true)));
 }
 else
 {
