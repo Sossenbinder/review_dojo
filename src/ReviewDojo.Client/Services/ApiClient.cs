@@ -17,11 +17,21 @@ public class ApiClient
     public ApiClient(HttpClient http) => _http = http;
 
     private record IdResp(int Id);
+    private record ErrResp(string? Error);
+
+    // Surface a server-provided { error } message (e.g. LLM failure) instead of a raw 500.
+    private static async Task Ensure(HttpResponseMessage resp)
+    {
+        if (resp.IsSuccessStatusCode) return;
+        string? msg = null;
+        try { msg = (await resp.Content.ReadFromJsonAsync<ErrResp>())?.Error; } catch { /* not a json error body */ }
+        throw new InvalidOperationException(msg ?? $"Request failed ({(int)resp.StatusCode} {resp.ReasonPhrase}).");
+    }
 
     public async Task<int> CreateSession(CreateSessionRequest r)
     {
         var resp = await _http.PostAsJsonAsync("api/sessions", r);
-        resp.EnsureSuccessStatusCode();
+        await Ensure(resp);
         var id = await resp.Content.ReadFromJsonAsync<IdResp>();
         return id!.Id;
     }
@@ -29,7 +39,7 @@ public class ApiClient
     public async Task<DiffDto> NextDiff(int sessionId)
     {
         var resp = await _http.PostAsync($"api/sessions/{sessionId}/diffs/next", null);
-        resp.EnsureSuccessStatusCode();
+        await Ensure(resp);
         return (await resp.Content.ReadFromJsonAsync<DiffDto>())!;
     }
 

@@ -31,7 +31,33 @@ public class OpenAiCompatibleClientTests
         Assert.Contains("\"model\":\"local-model\"", stub.LastBody);
         Assert.Contains("SYSTEM PROMPT", stub.LastBody);
         Assert.Contains("the user content", stub.LastBody);
-        Assert.Contains("json_object", stub.LastBody); // JSON mode on by default
+        Assert.Contains("json_schema", stub.LastBody); // JSON mode on by default (LM Studio-compatible)
+    }
+
+    private sealed class FallbackHandler : HttpMessageHandler
+    {
+        public int Calls; public string? LastBody;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
+        {
+            Calls++;
+            LastBody = req.Content is null ? "" : await req.Content.ReadAsStringAsync(ct);
+            if (LastBody.Contains("response_format"))
+                return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                { Content = new StringContent("{\"error\":\"'response_format.type' must be 'json_schema' or 'text'\"}") };
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"{\\\"files\\\":[]}\"}}]}") };
+        }
+    }
+
+    [Fact]
+    public async Task RetriesWithoutSchema_WhenServerRejectsResponseFormat()
+    {
+        var handler = new FallbackHandler();
+        var client = new OpenAiCompatibleClient(new HttpClient(handler), "http://localhost:1234/v1", null);
+        var res = await client.CompleteAsync(new LlmRequest("m", "s", new[] { new LlmMessage("user", "u") }));
+        Assert.Equal("{\"files\":[]}", res);          // recovered
+        Assert.Equal(2, handler.Calls);               // 1 rejected + 1 retry
+        Assert.DoesNotContain("response_format", handler.LastBody); // retry dropped it
     }
 
     [Fact]

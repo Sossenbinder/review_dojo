@@ -41,8 +41,17 @@ public static class DojoEndpoints
             int diffSeed = HashCode.Combine(session.Seed, ordinal);
             var shots = await db.Corpus.OrderByDescending(c => c.Id).Take(3)
                 .Select(c => new BugFewShot(c.Category, c.BeforeSnippet, c.AfterSnippet, c.Message)).ToListAsync();
-            var generated = await gen.GenerateAsync(session.TargetRepoPath, session.DifficultyTier, diffSeed,
-                cleanRate: session.CleanRate, fewShots: shots);
+            GeneratedDiff generated;
+            try
+            {
+                generated = await gen.GenerateAsync(session.TargetRepoPath, session.DifficultyTier, diffSeed,
+                    cleanRate: session.CleanRate, fewShots: shots);
+            }
+            catch (Exception ex) when (ex is GeneratorException or HttpRequestException or InvalidOperationException)
+            {
+                // Surface a readable reason (LLM error, bad JSON, no source files, …) to the client.
+                return Results.Json(new { error = ex.Message }, statusCode: StatusCodes.Status502BadGateway);
+            }
 
             var diff = new Diff
             {
