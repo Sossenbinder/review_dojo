@@ -23,7 +23,7 @@ public class DiffGenerator
 
     public async Task<GeneratedDiff> GenerateAsync(
         string repoPath, DifficultyTier tier, int seed, int? forceMistakeCount = null,
-        IReadOnlyList<BugFewShot>? fewShots = null, CancellationToken ct = default)
+        double cleanRate = 0.2, IReadOnlyList<BugFewShot>? fewShots = null, CancellationToken ct = default)
     {
         var files = LocusSelector.Select(repoPath, tier, seed);
         var before = files.ToDictionary(f => f.RelPath, f => f.Text);
@@ -38,7 +38,7 @@ public class DiffGenerator
             return new FileChange(beforeKey, before[beforeKey], kv.Value);
         }).ToList();
 
-        int m = forceMistakeCount ?? MistakeCountPolicy.Decide(tier, seed, cleanRate: 0.2);
+        int m = forceMistakeCount ?? MistakeCountPolicy.Decide(tier, seed, cleanRate);
         if (m == 0)
         {
             var cleanDiff = _diffBuilder.Build(cleanChanges);

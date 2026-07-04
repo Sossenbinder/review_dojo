@@ -62,4 +62,19 @@ public class GeneratorDeterminismTests
             }
         }
     }
+
+    [Fact]
+    public async Task CleanRateOne_AlwaysClean_CleanRateZero_AlwaysSeeded()
+    {
+        var gen = new DiffGenerator(new FakeClient(), "claude-sonnet-4-6");
+        var repoPath = Path.Combine(AppContext.BaseDirectory, "fixtures", "mini-repo");
+
+        var always = await gen.GenerateAsync(repoPath, DifficultyTier.Medium, seed: 3, cleanRate: 1.0);
+        Assert.True(always.IsClean);
+        Assert.Empty(always.Manifest);
+
+        var never = await gen.GenerateAsync(repoPath, DifficultyTier.Medium, seed: 3, cleanRate: 0.0);
+        Assert.False(never.IsClean);
+        Assert.NotEmpty(never.Manifest);
+    }
 }

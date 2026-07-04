@@ -37,7 +37,8 @@ public static class DojoEndpoints
             int diffSeed = HashCode.Combine(session.Seed, ordinal);
             var shots = await db.Corpus.OrderByDescending(c => c.Id).Take(3)
                 .Select(c => new BugFewShot(c.Category, c.BeforeSnippet, c.AfterSnippet, c.Message)).ToListAsync();
-            var generated = await gen.GenerateAsync(session.TargetRepoPath, session.DifficultyTier, diffSeed, fewShots: shots);
+            var generated = await gen.GenerateAsync(session.TargetRepoPath, session.DifficultyTier, diffSeed,
+                cleanRate: session.CleanRate, fewShots: shots);
 
             var diff = new Diff
             {
