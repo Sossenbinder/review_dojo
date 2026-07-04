@@ -11,8 +11,12 @@ public static class DojoEndpoints
 {
     public static void MapDojo(this WebApplication app)
     {
+        // All API routes live under /api so they never collide with the SPA's
+        // client-side routes (e.g. /stats, /review/{id}/{ordinal}).
+        var api = app.MapGroup("/api");
+
         // Create a session.
-        app.MapPost("/sessions", async (CreateSessionRequest req, ReviewDojoContext db) =>
+        api.MapPost("/sessions", async (CreateSessionRequest req, ReviewDojoContext db) =>
         {
             var session = new Session
             {
@@ -28,7 +32,7 @@ public static class DojoEndpoints
         });
 
         // Generate and persist the next diff for a session. Never returns the manifest.
-        app.MapPost("/sessions/{id:int}/diffs/next", async (int id, ReviewDojoContext db, DiffGenerator gen) =>
+        api.MapPost("/sessions/{id:int}/diffs/next", async (int id, ReviewDojoContext db, DiffGenerator gen) =>
         {
             var session = await db.Sessions.Include(s => s.Diffs).FirstOrDefaultAsync(s => s.Id == id);
             if (session is null) return Results.NotFound();
@@ -65,14 +69,14 @@ public static class DojoEndpoints
         });
 
         // Fetch a diff (no manifest).
-        app.MapGet("/diffs/{id:int}", async (int id, ReviewDojoContext db) =>
+        api.MapGet("/diffs/{id:int}", async (int id, ReviewDojoContext db) =>
         {
             var diff = await db.Diffs.FirstOrDefaultAsync(d => d.Id == id);
             return diff is null ? Results.NotFound() : Results.Ok(ToDiffDto(diff));
         });
 
         // Mark the review clock as started.
-        app.MapPost("/diffs/{id:int}/start", async (int id, ReviewDojoContext db) =>
+        api.MapPost("/diffs/{id:int}/start", async (int id, ReviewDojoContext db) =>
         {
             var diff = await db.Diffs.FirstOrDefaultAsync(d => d.Id == id);
             if (diff is null) return Results.NotFound();
@@ -82,7 +86,7 @@ public static class DojoEndpoints
         });
 
         // Submit findings + verdict, score, persist, and reveal the manifest.
-        app.MapPost("/diffs/{id:int}/submit", async (int id, SubmitRequest req, ReviewDojoContext db) =>
+        api.MapPost("/diffs/{id:int}/submit", async (int id, SubmitRequest req, ReviewDojoContext db) =>
         {
             var diff = await db.Diffs
                 .Include(d => d.Manifest)
@@ -132,7 +136,7 @@ public static class DojoEndpoints
         });
 
         // Gated reveal: 403 until the diff has been submitted.
-        app.MapGet("/diffs/{id:int}/reveal", async (int id, ReviewDojoContext db) =>
+        api.MapGet("/diffs/{id:int}/reveal", async (int id, ReviewDojoContext db) =>
         {
             var diff = await db.Diffs
                 .Include(d => d.Manifest)
@@ -154,7 +158,7 @@ public static class DojoEndpoints
         });
 
         // Aggregate stats across all scored diffs.
-        app.MapGet("/stats", async (ReviewDojoContext db) =>
+        api.MapGet("/stats", async (ReviewDojoContext db) =>
         {
             var scored = await db.Diffs.Include(x => x.Score).Include(x => x.Manifest)
                 .Where(x => x.Score != null).ToListAsync();

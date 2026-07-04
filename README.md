@@ -35,52 +35,26 @@ The connection string defaults to `Data Source=reviewdojo.db`. Override it with 
 
 ## Running
 
-You need two terminals: one for the API, one for the Blazor WASM client. **Use the `https` launch profile in
-both** so the URLs line up with the built-in config defaults (API on `https://localhost:7001`, client on
-`https://localhost:7002`).
-
-Terminal 1 — API:
+The API **hosts the Blazor WebAssembly client from the same origin**, so there is just one app to run — one
+port, no CORS, no client configuration.
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 dotnet run --project src/ReviewDojo.Api --launch-profile https
-# -> Now listening on: https://localhost:7001
+# -> open https://localhost:7001   (the same URL serves the UI and the /api/* endpoints)
 ```
 
-Terminal 2 — client:
+> The `https` profile also binds `http://localhost:5228` — open **that** URL instead if your browser doesn't
+> trust the local .NET dev HTTPS certificate (avoids the cert prompt entirely). If you just changed the client
+> and the browser shows stale behaviour, hard-refresh (Ctrl/Cmd+Shift+R) to bust the cached WebAssembly assets.
+
+### Demo mode (no API key, no network)
+
+To try the whole app with **no Anthropic API key and no network**:
 
 ```bash
-dotnet run --project src/ReviewDojo.Client --launch-profile https
-# -> serves the Blazor app on https://localhost:7002
-```
-
-Why `--launch-profile https`: `dotnet run` picks the *first* profile in `launchSettings.json` by default, which
-is the `http` profile (API `http://localhost:5228`, client `http://localhost:5271`). The client's compiled-in
-`ApiBase` default is `https://localhost:7001/`, and the API's CORS `ClientOrigin` default is
-`https://localhost:7002`. Selecting the `https` profile makes the running ports match those defaults so the two
-talk to each other with zero extra configuration.
-
-If you prefer different ports, keep them consistent by overriding both config values, e.g.:
-
-```bash
-# API: allow the client's real origin through CORS
-ClientOrigin=http://localhost:5271 dotnet run --project src/ReviewDojo.Api --launch-profile http
-# Client: point at the API's real base URL (note the trailing slash)
-ApiBase=http://localhost:5228/ dotnet run --project src/ReviewDojo.Client --launch-profile http
-```
-
-(Env-var forms: `ClientOrigin`, `ApiBase`. For the client — a WASM app — you can also set `ApiBase` in
-`wwwroot/appsettings.json`.)
-
-### Demo mode (no API key)
-
-To try the whole app with **no Anthropic API key and no network**, run the API with the `demo` launch profile:
-
-```bash
-# Terminal 1 — API with the offline mock generator (no ANTHROPIC_API_KEY needed)
 dotnet run --project src/ReviewDojo.Api --launch-profile demo
-# Terminal 2 — client, exactly as normal
-dotnet run --project src/ReviewDojo.Client --launch-profile https
+# -> open https://localhost:7001  (or http://localhost:5228 to skip the cert prompt)
 ```
 
 The `demo` profile sets `Anthropic__UseMock=true`, so the API wires up an in-process `MockAnthropicClient`
@@ -89,7 +63,7 @@ mock drives the *real* generation pipeline (locus selection, diff building, anch
 injects **simple operator/boundary flips** (e.g. `==`→`=`, `<=`→`<`) so you can exercise the review UI end to
 end. For realistic, varied diffs, run without the mock and set `ANTHROPIC_API_KEY` (real mode, above).
 
-**The review loop** (in the client, `https://localhost:7002`):
+**The review loop** (open the single app URL above):
 
 1. On the Home page (`/`), enter a **real repo path** on disk, choose a **difficulty** (Easy / Medium / Hard),
    and click **Start** — this creates a session.

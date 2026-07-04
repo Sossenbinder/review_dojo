@@ -14,15 +14,24 @@ else
 builder.Services.AddScoped(sp => new DiffGenerator(
     sp.GetRequiredService<IAnthropicClient>(),
     builder.Configuration["Anthropic:Model"] ?? "claude-sonnet-4-6"));
-builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins(builder.Configuration["ClientOrigin"] ?? "https://localhost:7002")
-     .AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<ReviewDojoContext>().Database.Migrate();
-app.UseCors();
+
+// This single app also serves the Blazor WebAssembly client (same origin — no CORS,
+// one port, one command). Skipped under test hosting, which only drives /api routes.
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseBlazorFrameworkFiles();
+    app.UseStaticFiles();
+}
+
 app.MapDojo();
+
+if (!app.Environment.IsEnvironment("Testing"))
+    app.MapFallbackToFile("index.html");
+
 app.Run();
 
 public partial class Program { }   // for WebApplicationFactory

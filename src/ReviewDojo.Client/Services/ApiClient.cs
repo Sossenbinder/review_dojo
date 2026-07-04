@@ -20,7 +20,7 @@ public class ApiClient
 
     public async Task<int> CreateSession(CreateSessionRequest r)
     {
-        var resp = await _http.PostAsJsonAsync("sessions", r);
+        var resp = await _http.PostAsJsonAsync("api/sessions", r);
         resp.EnsureSuccessStatusCode();
         var id = await resp.Content.ReadFromJsonAsync<IdResp>();
         return id!.Id;
@@ -28,23 +28,23 @@ public class ApiClient
 
     public async Task<DiffDto> NextDiff(int sessionId)
     {
-        var resp = await _http.PostAsync($"sessions/{sessionId}/diffs/next", null);
+        var resp = await _http.PostAsync($"api/sessions/{sessionId}/diffs/next", null);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<DiffDto>())!;
     }
 
     public async Task StartDiff(int id)
     {
-        var resp = await _http.PostAsync($"diffs/{id}/start", null);
+        var resp = await _http.PostAsync($"api/diffs/{id}/start", null);
         resp.EnsureSuccessStatusCode();
     }
 
     public async Task<RevealDto> Submit(int id, SubmitRequest r)
     {
-        var resp = await _http.PostAsJsonAsync($"diffs/{id}/submit", r);
+        var resp = await _http.PostAsJsonAsync($"api/diffs/{id}/submit", r);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<RevealDto>())!;
     }
 
-    public Task<StatsDto?> Stats() => _http.GetFromJsonAsync<StatsDto>("stats");
+    public Task<StatsDto?> Stats() => _http.GetFromJsonAsync<StatsDto>("api/stats");
 }

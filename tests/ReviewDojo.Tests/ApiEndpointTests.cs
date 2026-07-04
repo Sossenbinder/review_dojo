@@ -37,6 +37,9 @@ public class ApiEndpointTests : IClassFixture<ApiEndpointTests.DojoFactory>
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            // Testing environment skips the Blazor WASM static-file hosting so the
+            // factory only needs the API routes (no client build artifacts required).
+            builder.UseEnvironment("Testing");
             builder.UseSetting("ConnectionStrings:Db", $"Data Source={DbPath}");
             builder.ConfigureServices(services =>
             {
@@ -101,7 +104,7 @@ public class ApiEndpointTests : IClassFixture<ApiEndpointTests.DojoFactory>
         int diffId = SeedDiff();
         var client = _factory.CreateClient();
 
-        var resp = await client.GetAsync($"/diffs/{diffId}/reveal");
+        var resp = await client.GetAsync($"/api/diffs/{diffId}/reveal");
 
         Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
     }
@@ -116,7 +119,7 @@ public class ApiEndpointTests : IClassFixture<ApiEndpointTests.DojoFactory>
             Verdict.RequestChanges,
             new[] { new FindingDto("a.cs", 5, BugCategory.Mechanical, "found it") });
 
-        var submitResp = await client.PostAsJsonAsync($"/diffs/{diffId}/submit", submit);
+        var submitResp = await client.PostAsJsonAsync($"/api/diffs/{diffId}/submit", submit);
         Assert.Equal(HttpStatusCode.OK, submitResp.StatusCode);
 
         var reveal = await submitResp.Content.ReadFromJsonAsync<RevealDto>(JsonOpts);
@@ -126,7 +129,7 @@ public class ApiEndpointTests : IClassFixture<ApiEndpointTests.DojoFactory>
         Assert.True(reveal.Score.VerdictCorrect);
 
         // Gate opens post-submit.
-        var revealResp = await client.GetAsync($"/diffs/{diffId}/reveal");
+        var revealResp = await client.GetAsync($"/api/diffs/{diffId}/reveal");
         Assert.Equal(HttpStatusCode.OK, revealResp.StatusCode);
     }
 }
