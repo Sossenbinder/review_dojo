@@ -149,6 +149,14 @@ public static class DojoEndpoints
             var matches = new FindingMatcher().Match(bugs, Array.Empty<ReviewFinding>());
             return Results.Ok(ToReveal(diff, card, matches));
         });
+
+        // Aggregate stats across all scored diffs.
+        app.MapGet("/stats", async (ReviewDojoContext db) =>
+        {
+            var scored = await db.Diffs.Include(x => x.Score).Include(x => x.Manifest)
+                .Where(x => x.Score != null).ToListAsync();
+            return Results.Ok(StatsBuilder.Build(scored));
+        });
     }
 
     static DiffDto ToDiffDto(Diff d) =>
