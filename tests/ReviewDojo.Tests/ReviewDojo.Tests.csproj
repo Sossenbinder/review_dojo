@@ -29,6 +29,7 @@
     <ProjectReference Include="..\..\src\ReviewDojo.Data\ReviewDojo.Data.csproj" />
     <ProjectReference Include="..\..\src\ReviewDojo.Generator\ReviewDojo.Generator.csproj" />
     <ProjectReference Include="..\..\src\ReviewDojo.Api\ReviewDojo.Api.csproj" />
+    <ProjectReference Include="..\..\src\ReviewDojo.Cli\ReviewDojo.Cli.csproj" />
   </ItemGroup>
 
 </Project>
