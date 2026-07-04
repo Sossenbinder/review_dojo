@@ -1,0 +1,48 @@
+@page "/stats"
+@inject ReviewDojo.Client.Services.ApiClient Api
+@using ReviewDojo.Client.Services
+
+@if (loading)
+{
+  <p>Loading…</p>
+}
+else if (s is null || s.TotalScored == 0)
+{
+  <h2>Cumulative stats</h2>
+  <p>No completed diffs yet. <a href="/">Start a session.</a></p>
+}
+else
+{
+  <h2>Cumulative stats (@s.TotalScored diffs)</h2>
+  <ul>
+    <li>Mean recall: @s.MeanRecall.ToString("P0")</li>
+    <li>Mean precision: @s.MeanPrecision.ToString("P0")</li>
+    <li>Mean false-positive rate: @s.MeanFpRate.ToString("P0")</li>
+    <li>Median time: @(s.MedianTimeMs / 1000)s</li>
+    <li>Calibration — clean-diff approvals: @s.CleanApprovalRate.ToString("P0"), seeded-diff rejections: @s.SeededRejectionRate.ToString("P0")</li>
+  </ul>
+  <h3>Recall by bug category</h3>
+  @if (s.PerCategoryRecall.Count == 0)
+  {
+    <p>No seeded bugs scored yet.</p>
+  }
+  else
+  {
+    <ul>
+      @foreach (var kv in s.PerCategoryRecall)
+      {
+        <li>@kv.Key: @kv.Value.ToString("P0")</li>
+      }
+    </ul>
+  }
+  <p><a href="/">Start another session</a></p>
+}
+
+@code {
+    StatsDto? s; bool loading = true;
+    protected override async Task OnInitializedAsync()
+    {
+        try { s = await Api.Stats(); }
+        finally { loading = false; }
+    }
+}

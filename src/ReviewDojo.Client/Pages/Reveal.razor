@@ -1,0 +1,53 @@
+@page "/reveal/{SessionId:int}/{Ordinal:int}"
+@inject NavigationManager Nav
+@using ReviewDojo.Client.Services
+
+@if (r is null)
+{
+  <p>No reveal data. <a href="/">Start a new session.</a></p>
+}
+else
+{
+  <h2>Result — diff #@(Ordinal + 1) of 5</h2>
+  <ul class="metrics">
+    <li>Recall: @r.Score.Recall.ToString("P0")</li>
+    <li>Precision: @r.Score.Precision.ToString("P0")</li>
+    <li>Severity-weighted recall: @r.Score.SeverityWeightedRecall.ToString("P0")</li>
+    <li>False-positive rate: @r.Score.FalsePositiveRate.ToString("P0")</li>
+    <li>Verdict correct: @(r.Score.VerdictCorrect ? "yes" : "no")</li>
+    <li>Hits @r.Score.Hits · Misses @r.Score.Misses · False positives @r.Score.FalsePositives</li>
+    <li>Time: @(r.Score.TimeMs / 1000)s</li>
+  </ul>
+
+  <h3>Seeded bugs (@r.Manifest.Count)</h3>
+  @if (r.Manifest.Count == 0)
+  {
+    <p>This was a <strong>clean diff</strong> — no seeded bugs.</p>
+  }
+  else
+  {
+    <ul class="manifest">
+      @foreach (var b in r.Manifest)
+      {
+        <li><b>@b.FilePath:@b.LineStart</b> [@b.Category / @b.Severity] — @b.Description</li>
+      }
+    </ul>
+  }
+
+  @if (Ordinal + 1 < 5)
+  {
+    <button @onclick="Next">Next diff</button>
+  }
+  else
+  {
+    <button @onclick='() => Nav.NavigateTo("/stats")'>See cumulative stats</button>
+  }
+}
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    [Parameter] public int Ordinal { get; set; }
+    RevealDto? r;
+    protected override void OnInitialized() => r = RevealCache.Last;
+    void Next() => Nav.NavigateTo($"/review/{SessionId}/{Ordinal + 1}");
+}
