@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +16,10 @@ public class ApiEndpointTests : IClassFixture<ApiEndpointTests.DojoFactory>
 {
     private readonly DojoFactory _factory;
     public ApiEndpointTests(DojoFactory factory) => _factory = factory;
+
+    // The API serializes enums as strings (JsonStringEnumConverter); match that on read.
+    private static readonly JsonSerializerOptions JsonOpts =
+        new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     // A trivial fake so the app boots without ANTHROPIC_API_KEY. /diffs/next is not
     // exercised by these tests, but the fake returns a parseable empty-files payload.
@@ -113,7 +119,7 @@ public class ApiEndpointTests : IClassFixture<ApiEndpointTests.DojoFactory>
         var submitResp = await client.PostAsJsonAsync($"/diffs/{diffId}/submit", submit);
         Assert.Equal(HttpStatusCode.OK, submitResp.StatusCode);
 
-        var reveal = await submitResp.Content.ReadFromJsonAsync<RevealDto>();
+        var reveal = await submitResp.Content.ReadFromJsonAsync<RevealDto>(JsonOpts);
         Assert.NotNull(reveal);
         Assert.NotEmpty(reveal!.Manifest);
         Assert.True(reveal.Score.Hits >= 1);

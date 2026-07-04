@@ -4,6 +4,7 @@ using ReviewDojo.Data;
 using ReviewDojo.Generator;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddDbContext<ReviewDojoContext>(o =>
     o.UseSqlite(builder.Configuration.GetConnectionString("Db") ?? "Data Source=reviewdojo.db"));
 builder.Services.AddHttpClient<IAnthropicClient, AnthropicClient>();
