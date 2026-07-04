@@ -1,6 +1,35 @@
-bin/
-obj/
-.env
+## .NET build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+
+## Test results & coverage
+[Tt]est[Rr]esults/
+*.trx
+*.coverage
+*.coverage.xml
+coverage/
+
+## Local SQLite runtime data
 *.db
-*.db-*
+*.db-shm
+*.db-wal
+*.db-journal
+
+## Secrets & machine-local config (never commit API keys)
+.env
+.env.*
+*.user
+appsettings.*.local.json
+secrets.json
+
+## IDE / editor
 .vs/
+.vscode/
+.idea/
+*.userprefs
+*.suo
+
+## OS cruft
+.DS_Store
+Thumbs.db

@@ -1,0 +1,21 @@
+# Normalize line endings; let Git detect text vs binary.
+* text=auto
+
+# Explicitly text (LF in the repo)
+*.cs        text
+*.csproj    text
+*.slnx      text
+*.json      text
+*.razor     text
+*.css       text
+*.js        text
+*.html      text
+*.md        text
+*.sh        text eol=lf
+
+# Binary assets
+*.png       binary
+*.jpg       binary
+*.ico       binary
+*.wasm      binary
+*.gz        binary
