@@ -1,47 +1,24 @@
 using Microsoft.EntityFrameworkCore;
+using ReviewDojo.Api;
 using ReviewDojo.Data;
+using ReviewDojo.Generator;
 
 var builder = WebApplication.CreateBuilder(args);
-
 builder.Services.AddDbContext<ReviewDojoContext>(o =>
     o.UseSqlite(builder.Configuration.GetConnectionString("Db") ?? "Data Source=reviewdojo.db"));
-
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddHttpClient<IAnthropicClient, AnthropicClient>();
+builder.Services.AddScoped(sp => new DiffGenerator(
+    sp.GetRequiredService<IAnthropicClient>(),
+    builder.Configuration["Anthropic:Model"] ?? "claude-sonnet-4-6"));
+builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+    p.WithOrigins(builder.Configuration["ClientOrigin"] ?? "https://localhost:7002")
+     .AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
+using (var scope = app.Services.CreateScope())
+    scope.ServiceProvider.GetRequiredService<ReviewDojoContext>().Database.Migrate();
+app.UseCors();
+app.MapDojo();
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+public partial class Program { }   // for WebApplicationFactory
