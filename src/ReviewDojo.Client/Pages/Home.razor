@@ -1,7 +1,31 @@
-﻿@page "/"
+@page "/"
+@inject ReviewDojo.Client.Services.ApiClient Api
+@inject NavigationManager Nav
 
-<PageTitle>Home</PageTitle>
+<h1>Review Dojo</h1>
+<p>Deliberate practice for reviewing AI-generated code.</p>
 
-<h1>Hello, world!</h1>
+<div class="start-form">
+  <label>Target repo path <input @bind="repo" placeholder="/path/to/a/git/repo" /></label>
+  <label>Difficulty
+    <select @bind="tier"><option>Easy</option><option>Medium</option><option>Hard</option></select>
+  </label>
+  <button disabled="@(string.IsNullOrWhiteSpace(repo) || busy)" @onclick="Start">
+    @(busy ? "Starting…" : "Start session (5 diffs)")
+  </button>
+  @if (error is not null) { <p class="error">@error</p> }
+</div>
 
-Welcome to your new app.
+@code {
+    string repo = ""; string tier = "Medium"; bool busy; string? error;
+    async Task Start()
+    {
+        busy = true; error = null;
+        try
+        {
+            var id = await Api.CreateSession(new(repo, tier, 0.2, null));
+            Nav.NavigateTo($"/review/{id}/0");
+        }
+        catch (Exception ex) { error = ex.Message; busy = false; }
+    }
+}

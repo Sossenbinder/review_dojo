@@ -1,0 +1,109 @@
+@page "/review/{SessionId:int}/{Ordinal:int}"
+@implements IDisposable
+@inject ReviewDojo.Client.Services.ApiClient Api
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@using ReviewDojo.Client.Services
+
+@if (diff is null)
+{
+  <p>@(error ?? "Generating diff…")</p>
+}
+else
+{
+  <div class="toolbar">
+    <span>Diff #@(Ordinal + 1) of 5 — @diff.SizeLines changed lines — @elapsed.ToString(@"mm\:ss")</span>
+    <button @onclick="ToggleMode">@(mode == "side" ? "Unified view" : "Side-by-side view")</button>
+  </div>
+  <div id="diffview"></div>
+
+  <h3>Findings (@findings.Count)</h3>
+  <div class="add-finding">
+    <input placeholder="file" @bind="fFile" />
+    <input type="number" placeholder="line" @bind="fLine" />
+    <select @bind="fCat">
+      <option>Mechanical</option><option>EdgeCase</option><option>Contextual</option>
+      <option>Abstraction</option><option>AgentTypical</option>
+    </select>
+    <input placeholder="comment (optional)" @bind="fComment" />
+    <button @onclick="AddFinding" disabled="@string.IsNullOrWhiteSpace(fFile)">Add</button>
+  </div>
+  <ul>
+    @foreach (var f in findings)
+    { <li>@f.FilePath:@f.Line [@f.Category] @f.Comment</li> }
+  </ul>
+
+  <div class="verdict">
+    <button @onclick='() => Submit("Approve")' disabled="@submitting">Approve</button>
+    <button @onclick='() => Submit("RequestChanges")' disabled="@submitting">Request changes</button>
+  </div>
+}
+
+@code {
+    [Parameter] public int SessionId { get; set; }
+    [Parameter] public int Ordinal { get; set; }
+
+    DiffDto? diff; string? error; string mode = "line";
+    string fFile = ""; int fLine; string fCat = "Mechanical"; string? fComment;
+    readonly List<FindingDto> findings = new();
+    System.Timers.Timer? timer; TimeSpan elapsed; DateTime startedAt;
+    bool _needsRender; bool submitting;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // reset for the new ordinal
+        timer?.Stop(); timer?.Dispose(); timer = null;
+        findings.Clear(); diff = null; error = null; elapsed = TimeSpan.Zero;
+        mode = "line"; fFile = ""; fLine = 0; fComment = null; fCat = "Mechanical";
+        StateHasChanged();
+        try
+        {
+            diff = await Api.NextDiff(SessionId);
+            await Api.StartDiff(diff.Id);
+            startedAt = DateTime.UtcNow;
+            _needsRender = true;
+            timer = new System.Timers.Timer(1000);
+            timer.Elapsed += (_, _) => { elapsed = DateTime.UtcNow - startedAt; InvokeAsync(StateHasChanged); };
+            timer.Start();
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (diff is not null && _needsRender)
+        {
+            _needsRender = false;
+            await JS.InvokeVoidAsync("dojoDiff.render", "diffview", diff.UnifiedDiffText, mode);
+        }
+    }
+
+    async Task ToggleMode()
+    {
+        mode = mode == "side" ? "line" : "side";
+        await JS.InvokeVoidAsync("dojoDiff.render", "diffview", diff!.UnifiedDiffText, mode);
+    }
+
+    void AddFinding()
+    {
+        if (string.IsNullOrWhiteSpace(fFile)) return;
+        findings.Add(new(fFile, fLine, fCat, fComment));
+        fFile = ""; fLine = 0; fComment = null;
+    }
+
+    async Task Submit(string verdict)
+    {
+        if (diff is null) return;
+        submitting = true;
+        timer?.Stop();
+        try
+        {
+            var reveal = await Api.Submit(diff.Id, new(verdict, findings.ToList()));
+            RevealCache.Last = reveal;
+            Nav.NavigateTo($"/reveal/{SessionId}/{Ordinal}");
+        }
+        catch (Exception ex) { error = ex.Message; submitting = false; }
+    }
+
+    public void Dispose() { timer?.Dispose(); }
+}
