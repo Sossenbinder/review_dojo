@@ -1,4 +1,10 @@
+using Microsoft.EntityFrameworkCore;
+using ReviewDojo.Data;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<ReviewDojoContext>(o =>
+    o.UseSqlite(builder.Configuration.GetConnectionString("Db") ?? "Data Source=reviewdojo.db"));
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
